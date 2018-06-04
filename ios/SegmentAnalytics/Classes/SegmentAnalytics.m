@@ -2,10 +2,20 @@
 //  Copyright (c) 2016 OnCircle Inc. All rights reserved.
 //
 
+#if __has_include(<React/RCTConvert.h>)
 #import <React/RCTConvert.h>
-#import <Analytics/SEGAnalytics.h>
-#import <Foundation/Foundation.h>
+#else
+#import "RCTConvert.h"
+#endif
 
+#if __has_include(<Analytics/SEGAnalytics.h>)
+#import <Analytics/SEGAnalytics.h>
+#else
+#import "SEGAnalytics.h"
+#endif
+
+
+#import <Foundation/Foundation.h>
 #import "SegmentAnalytics.h"
 #import "EJoyIntergration.h"
 

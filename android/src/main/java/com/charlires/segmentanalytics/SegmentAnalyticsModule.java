@@ -1,5 +1,6 @@
 package com.charlires.segmentanalytics;
 
+import android.net.Uri;
 import android.support.annotation.Nullable;
 import android.util.Log;
 
@@ -11,16 +12,27 @@ import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.ReadableMapKeySetIterator;
 import com.facebook.react.bridge.ReadableType;
 import com.segment.analytics.Analytics;
+import com.segment.analytics.ConnectionFactory;
 import com.segment.analytics.Properties;
 import com.segment.analytics.Traits;
 
+ 
+import com.segment.analytics.android.integrations.google.analytics.GoogleAnalyticsIntegration;
+import com.segment.analytics.android.integrations.mixpanel.MixpanelIntegration;
+
+import java.io.IOException;
+import java.net.HttpURLConnection;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
 
 
 public class SegmentAnalyticsModule extends ReactContextBaseJavaModule {
+
+    private static final String LOG_TAG = "ejoy-analytics";
+
+    private boolean singletonExisted = false;
 
     public SegmentAnalyticsModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -32,17 +44,54 @@ public class SegmentAnalyticsModule extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void setup(String configKey) {
+    public void setup(String configKey, ReadableMap options) {
+
+        if (singletonExisted == true) {
+            Log.w(LOG_TAG, "Analytics instant already exist!");
+            return;
+        }
+
         try {
-            Analytics analytics = new Analytics.Builder(this.getReactApplicationContext(), configKey)
-                    .trackApplicationLifecycleEvents() // Enable this to record certain application events automatically!
-                    .recordScreenViews() // Enable this to record screen views automatically!
-                    .build();
+            Map _options = toMap(options);
+            final Object _ejoyUrl =  _options.get("ejoyUrl");
+            final String ejoyUrl = _ejoyUrl != null ?  _ejoyUrl.toString() : null;
+            final Object _customPath = _options.get("customPath");
+            final String customPath = _ejoyUrl != null ? _customPath.toString() : null;
+            Object trackLifecycle =  _options.get("trackApplicationLifecycleEvents");
+            Boolean _trackLifecycle = trackLifecycle != null ?
+             (Boolean) trackLifecycle : true;
+
+            
+            Analytics.Builder builder = new Analytics.Builder(this.getReactApplicationContext(), configKey)
+                    .use(MixpanelIntegration.FACTORY)
+                    .use(GoogleAnalyticsIntegration.FACTORY)
+                    .recordScreenViews();
+
+                    if(_trackLifecycle == true) {
+                        builder.trackApplicationLifecycleEvents();
+                    }
+
+                    if (ejoyUrl != null) {
+                        builder.connectionFactory(new ConnectionFactory() {
+                            @Override protected HttpURLConnection openConnection(String url) throws IOException {
+                              String path = customPath != null ? customPath : Uri.parse(url).getPath();
+                              Log.w(LOG_TAG, "rootUrl: " + url + " ejoyURl: " + ejoyUrl + " path: " + path);
+                              // Replace YOUR_PROXY_HOST with the address of your proxy, e.g. https://aba64da6.ngrok.io.
+                              return super.openConnection(ejoyUrl + path);
+                            }
+                          });
+                    }
+
+                    Analytics analytics = builder.build();
+                    
+            singletonExisted = true;
             Analytics.setSingletonInstance(analytics);
+            Log.w(LOG_TAG, "setup analytics complete");
         } catch (Exception e) {
-            Log.e("SegmentAnalyticsModule", "Failed to setup. " + e.getMessage());
+            Log.e(LOG_TAG, "Failed to setup. " + e.getMessage());
         }
     }
+
 
     @ReactMethod
     public void identify(String userId, ReadableMap traits) {
@@ -53,7 +102,7 @@ public class SegmentAnalyticsModule extends ReactContextBaseJavaModule {
                 null
             );
         } catch (Exception e) {
-            Log.e("SegmentAnalyticsModule", "Failed to identify " + userId + ". " + e.getMessage());
+            Log.e(LOG_TAG, "Failed to identify " + userId + ". " + e.getMessage());
         }
     }
 
@@ -65,7 +114,7 @@ public class SegmentAnalyticsModule extends ReactContextBaseJavaModule {
                 this.toProperties(properties)
             );
         } catch (Exception e) {
-            Log.e("SegmentAnalyticsModule", "Failed to track " + trackText + ". " + e.getMessage());
+            Log.e(LOG_TAG, "Failed to track " + trackText + ". " + e.getMessage());
         }
     }
 
@@ -77,7 +126,7 @@ public class SegmentAnalyticsModule extends ReactContextBaseJavaModule {
                 screenName,
                 this.toProperties(properties));
         } catch (Exception e) {
-            Log.e("SegmentAnalyticsModule", "Failed to screen " + screenName + ". " + e.getMessage());
+            Log.e(LOG_TAG, "Failed to screen " + screenName + ". " + e.getMessage());
         }
     }
 
@@ -89,7 +138,7 @@ public class SegmentAnalyticsModule extends ReactContextBaseJavaModule {
                 null
             );
         } catch (Exception e) {
-            Log.e("SegmentAnalyticsModule", "Failed to alias " + newId + ". " + e.getMessage());
+            Log.e(LOG_TAG, "Failed to alias " + newId + ". " + e.getMessage());
         }
     }
 
